@@ -1,17 +1,7 @@
+import { TAG_BIT, TAG_CODES, TAG_LABEL } from '../core/dictionary';
 import type { Settings } from '../core/search';
 
 const WORD_COUNTS = [1, 2, 3, 4, 5, 6];
-
-// Register-Filter aus der Anforderung. Die Schalter stehen hier bereits, sind
-// aber inaktiv: die Frequenzliste aus Milestone 1 trägt keine Marker. Erst die
-// Wiktionary-Pipeline liefert `umgangssprachlich`, `Abkürzung`, `vulgär` usw.
-const REGISTERS = [
-  'Abkürzungen',
-  'Anglizismen',
-  'Umgangssprache & Slang',
-  'Vulgär & derb',
-  'Eigennamen',
-];
 
 export function SettingsSheet({
   settings,
@@ -85,13 +75,24 @@ export function SettingsSheet({
         <div class="field">
           <span class="field-label">Wortschatz</span>
           <div class="chips">
-            {REGISTERS.map((name) => (
-              <button key={name} class="chip" disabled>
-                {name}
-              </button>
-            ))}
+            {TAG_CODES.map((code) => {
+              const on = (settings.blockedTags & TAG_BIT[code]) === 0;
+              return (
+                <button
+                  key={code}
+                  class={on ? 'chip chip-on' : 'chip'}
+                  aria-pressed={on}
+                  onClick={() => patch({ blockedTags: settings.blockedTags ^ TAG_BIT[code] })}
+                >
+                  {TAG_LABEL[code]}
+                </button>
+              );
+            })}
           </div>
-          <em class="note">Braucht das getaggte Wörterbuch — Milestone 2.</em>
+          <em class="note">
+            Standardsprache ist immer dabei. Abgewählte Register verschwinden aus den
+            Ergebnissen.
+          </em>
         </div>
 
         <button class="sheet-close" onClick={onClose}>

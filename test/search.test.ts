@@ -2,14 +2,21 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { countsOf, normalize } from '../src/core/letters';
+import { parseDictionary, TAG_BIT, untagged, type Dictionary } from '../src/core/dictionary';
 import { buildCandidates, enumerate, type Settings } from '../src/core/search';
 
-const BASE: Settings = { minLen: 3, maxLen: 20, maxWords: 3, resolveUmlauts: true };
+const BASE: Settings = {
+  minLen: 3,
+  maxLen: 20,
+  maxWords: 3,
+  resolveUmlauts: true,
+  blockedTags: 0,
+};
 
-function solve(dict: string[], input: string, settings: Settings = BASE): string[][] {
+function solve(dict: string[] | Dictionary, input: string, settings: Settings = BASE): string[][] {
   const letters = normalize(input, settings.resolveUmlauts);
   const target = countsOf(letters);
-  const candidates = buildCandidates(dict, target, settings);
+  const candidates = buildCandidates(Array.isArray(dict) ? untagged(dict) : dict, target, settings);
   const out: string[][] = [];
   for (const indices of enumerate(candidates, target, settings.maxWords, settings.minLen)) {
     out.push(indices.map((i) => candidates.words[i]));
@@ -60,7 +67,7 @@ test('minLen und maxLen filtern Kandidaten', () => {
 // Die zentrale Invariante: ein Anagramm verbraucht exakt die Buchstaben der
 // Eingabe — keinen zu viel, keinen zu wenig.
 test.each([true, false])('jedes Ergebnis ist buchstabengleich zur Eingabe (resolveUmlauts=%s)', (resolveUmlauts) => {
-  const dict = readFileSync(resolve(__dirname, '../public/dict.txt'), 'utf8').split('\n').filter(Boolean);
+  const dict = parseDictionary(readFileSync(resolve(__dirname, '../public/dict.txt'), 'utf8'));
   const input = 'Benedict Gruber';
   const letters = normalize(input, resolveUmlauts);
 
@@ -76,6 +83,36 @@ test.each([true, false])('jedes Ergebnis ist buchstabengleich zur Eingabe (resol
 
   const keys = found.map((w) => [...w].sort().join(' '));
   expect(new Set(keys).size).toBe(keys.length);
+});
+
+test('Register-Format wird korrekt geparst', () => {
+  const dict = parseDictionary('haus\nkacke\tV\ncringe\tEJ\n');
+  expect(dict.words).toEqual(['haus', 'kacke', 'cringe']);
+  expect([...dict.tags]).toEqual([0, TAG_BIT.V, TAG_BIT.E | TAG_BIT.J]);
+});
+
+test('abgewählte Register verschwinden aus den Kandidaten', () => {
+  const dict = parseDictionary('rat\ntar\tV\n');
+  expect(solve(dict, 'rat').flat().sort()).toEqual(['rat', 'tar']);
+  expect(solve(dict, 'rat', { ...BASE, blockedTags: TAG_BIT.V }).flat()).toEqual(['rat']);
+});
+
+test('Standardsprache bleibt, egal was blockiert ist', () => {
+  const dict = parseDictionary('rat\ntar\tV\n');
+  const allBlocked = TAG_BIT.A | TAG_BIT.E | TAG_BIT.U | TAG_BIT.J | TAG_BIT.V;
+  expect(solve(dict, 'rat', { ...BASE, blockedTags: allBlocked }).flat()).toEqual(['rat']);
+});
+
+test('das gebaute Wörterbuch trägt die erwarteten Register', () => {
+  const dict = parseDictionary(readFileSync(resolve(__dirname, '../public/dict.txt'), 'utf8'));
+  const tagOf = (word: string) => dict.tags[dict.words.indexOf(word)];
+
+  expect(dict.words).toContain('digga');
+  expect(tagOf('digga') & TAG_BIT.J).toBeTruthy();
+  expect(tagOf('cringe') & TAG_BIT.E).toBeTruthy();
+  expect(tagOf('fotze') & TAG_BIT.V).toBeTruthy();
+  // Alltagswörter dürfen kein Register tragen, sonst filtert man sie versehentlich weg.
+  expect(tagOf('haus')).toBe(0);
 });
 
 test('strikter Modus liefert eine Teilmenge des aufgelösten Modus', () => {

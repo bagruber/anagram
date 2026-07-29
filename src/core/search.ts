@@ -12,6 +12,7 @@
 //   3. Index-Ordnung — ein Wort darf nur an Position >= dem Vorgänger gewählt
 //      werden. Verhindert, dass dieselbe Menge in jeder Reihenfolge auftaucht.
 
+import type { Dictionary } from './dictionary';
 import { A, countsOf, maskOf, normalize } from './letters';
 
 const HAS_UMLAUT = /[äöüß]/;
@@ -21,6 +22,8 @@ export interface Settings {
   maxLen: number;
   maxWords: number;
   resolveUmlauts: boolean;
+  /** Bitmaske der Register, die ausgeschlossen sind. 0 = alles erlaubt. */
+  blockedTags: number;
 }
 
 export interface Candidates {
@@ -50,7 +53,7 @@ export interface Candidates {
  * bestehen — also die interessanten.
  */
 export function buildCandidates(
-  dict: readonly string[],
+  dict: Dictionary,
   target: Uint8Array,
   settings: Settings,
 ): Candidates {
@@ -60,8 +63,12 @@ export function buildCandidates(
 
   const picked: { word: string; len: number; rank: number; counts: Uint8Array; mask: number }[] = [];
 
-  for (let rank = 0; rank < dict.length; rank++) {
-    const word = dict[rank];
+  for (let rank = 0; rank < dict.words.length; rank++) {
+    // Ein Wort fliegt raus, sobald eines seiner Register abgewählt ist.
+    // Wörter ohne Tags sind Standardsprache und bleiben immer.
+    if ((dict.tags[rank] & settings.blockedTags) !== 0) continue;
+
+    const word = dict.words[rank];
     // Die Längengrenzen meinen das geschriebene Wort — "Bär" ist für den
     // Nutzer drei Buchstaben lang, auch wenn intern "baer" daraus wird.
     if (word.length < settings.minLen || word.length > settings.maxLen) continue;
@@ -205,6 +212,11 @@ export function* enumerate(
   yield* step(0, total);
 }
 
+// Jenseits dieses Rangs sagt Seltenheit nichts mehr über Witz aus — dort
+// stehen Fachbegriffe und Kürzel. Ohne Deckel gewinnen drei obskure
+// Dreibuchstabler gegen ein gutes langes Wort.
+const RARITY_CAP = 20_000;
+
 /**
  * Höher ist besser.
  *
@@ -217,7 +229,7 @@ export function* enumerate(
 export function scoreOf(words: readonly string[], ranks: readonly number[]): number {
   let score = 0;
   for (const w of words) score += w.length * w.length;
-  for (const r of ranks) score += 1.5 * Math.log10(r + 10);
+  for (const r of ranks) score += 0.8 * Math.log10(Math.min(r, RARITY_CAP) + 10);
   return score;
 }
 

@@ -86,6 +86,17 @@ export function App() {
   const sorted = useMemo(() => [...results].sort((a, b) => b.score - a.score), [results]);
   const groups = useMemo(() => groupWords(candidates), [candidates]);
 
+  // Ob ein Wort überhaupt zu einem vollständigen Anagramm führt, steht bereits
+  // in den Treffern — jedes dort verwendete Wort ist per Definition auflösbar.
+  // Kostet damit keine zweite Suche und wächst mit den Batches mit.
+  const usage = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const result of results) {
+      for (const word of result.words) counts.set(word, (counts.get(word) ?? 0) + 1);
+    }
+    return counts;
+  }, [results]);
+
   // Gruppen-Pins teilen sich den Stamm, dessen Buchstaben also in jeder
   // Alternative verbraucht werden — das kürzeste Wort ist die sichere Untergrenze.
   const consumed = useMemo(
@@ -162,7 +173,15 @@ export function App() {
         )}
 
         {!error && letters && tab === 'words' && (
-          <WordList groups={groups} limit={limit} onMore={showMore} onPin={addPin} />
+          <WordList
+            groups={groups}
+            usage={usage}
+            limit={limit}
+            searching={running}
+            truncated={done?.truncated ?? false}
+            onMore={showMore}
+            onPin={addPin}
+          />
         )}
       </main>
 

@@ -125,23 +125,35 @@ button {
 }
 
 .tile {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 30px;
+  width: 30px;
+  height: 34px;
   background: var(--tile);
   border-radius: var(--radius);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   text-transform: uppercase;
-  font-feature-settings: 'tnum';
+}
+
+/* Der Zähler sitzt in der Ecke, damit der Buchstabe optisch zentriert bleibt. */
+.tile i {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
 }
 
 .tile-used {
   background: none;
   border: 1px dashed var(--line);
   color: var(--ink-soft);
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .tray-count {
@@ -297,6 +309,26 @@ button {
   color: var(--ink-soft);
 }
 
+/* Kandidaten ohne nachgewiesene Lösung: sichtbar, aber zurückgenommen. */
+.row-dead {
+  opacity: 0.38;
+}
+
+.row-word small {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.list-note {
+  margin: 0;
+  padding: 10px var(--pad);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
 .more {
   width: 100%;
   padding: 16px;
@@ -442,14 +474,16 @@ input[type='range'] {
 .chip {
   padding: 7px 11px;
   font-size: 14px;
+  color: var(--ink-soft);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
 
-.chip:disabled {
-  color: var(--ink-soft);
-  opacity: 0.5;
-  cursor: not-allowed;
+.chip-on {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
 }
 
 .sheet-close {

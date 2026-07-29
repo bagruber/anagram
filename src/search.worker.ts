@@ -5,6 +5,7 @@
 // ist die Ergebnismenge groß genug, dass "warten bis fertig" keine Option ist.
 
 import { countsOf, normalize } from './core/letters';
+import { parseDictionary, type Dictionary } from './core/dictionary';
 import { buildCandidates, enumerate, scoreOf, subtract } from './core/search';
 import type { AnagramResult, Pin, WorkerRequest, WorkerResponse } from './core/protocol';
 
@@ -13,7 +14,7 @@ const MAX_MS = 10_000;
 const SLICE_MS = 40;
 const MAX_PIN_COMBOS = 64;
 
-let dict: string[] = [];
+let dict: Dictionary = { words: [], tags: new Uint8Array(0) };
 let activeId = -1;
 
 const post = (msg: WorkerResponse) => self.postMessage(msg);
@@ -33,8 +34,8 @@ async function load(url: string) {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Wörterbuch nicht ladbar (${res.status})`);
-    dict = (await res.text()).split('\n').filter(Boolean);
-    post({ type: 'loaded', words: dict.length });
+    dict = parseDictionary(await res.text());
+    post({ type: 'loaded', words: dict.words.length });
   } catch (err) {
     post({ type: 'error', message: err instanceof Error ? err.message : String(err) });
   }
@@ -98,7 +99,7 @@ async function run(req: Extract<WorkerRequest, { type: 'search' }>) {
 
     const comboRanks = combo.map((word) => {
       const i = candidates.words.indexOf(word);
-      return i >= 0 ? candidates.ranks[i] : dict.indexOf(word);
+      return i >= 0 ? candidates.ranks[i] : dict.words.indexOf(word);
     });
 
     for (const indices of enumerate(candidates, rest, settings.maxWords - combo.length, settings.minLen)) {
