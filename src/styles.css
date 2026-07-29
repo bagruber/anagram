@@ -1,0 +1,463 @@
+/* Flach, hoher Kontrast, eine einzige Akzentfarbe — die trägt ausschließlich
+   den Pin-Zustand. Textur kommt von den Buchstabensteinen, sonst nichts. */
+
+:root {
+  --bg: #faf8f4;
+  --surface: #ffffff;
+  --ink: #16140f;
+  --ink-soft: #6b6459;
+  --line: #e2dbcf;
+  --tile: #ece5d9;
+  --accent: #cf3a10;
+  --accent-ink: #ffffff;
+
+  --pad: 16px;
+  --radius: 3px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111110;
+    --surface: #1a1917;
+    --ink: #f1ece3;
+    --ink-soft: #8d867a;
+    --line: #2c2924;
+    --tile: #252220;
+    --accent: #ff6a35;
+    --accent-ink: #16140f;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.4 ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* ---------- Gerüst ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 620px;
+  margin: 0 auto;
+  border-inline: 1px solid var(--line);
+}
+
+@media (max-width: 640px) {
+  .app {
+    border-inline: none;
+  }
+}
+
+.head {
+  padding: var(--pad);
+  padding-top: max(var(--pad), env(safe-area-inset-top));
+  border-bottom: 1px solid var(--line);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px var(--pad);
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* ---------- Eingabe ---------- */
+
+.input {
+  width: 100%;
+  padding: 10px 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 2px solid var(--ink);
+  border-radius: 0;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+/* ---------- Buchstabensteine ---------- */
+
+.tray {
+  margin-top: 14px;
+}
+
+.tray-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 30px;
+  background: var(--tile);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-feature-settings: 'tnum';
+}
+
+.tile-used {
+  background: none;
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+  opacity: 0.5;
+}
+
+.tray-count {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ---------- Pins ---------- */
+
+.pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 5px 8px 5px 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pin > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pin-x {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* ---------- Tabs ---------- */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 8px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab b {
+  font-variant-numeric: tabular-nums;
+}
+
+.tab-on {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ---------- Zeilen ---------- */
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows > li {
+  border-bottom: 1px solid var(--line);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 13px var(--pad);
+  text-align: left;
+}
+
+.row:active {
+  background: var(--tile);
+}
+
+.row-text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+
+.row-word {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+/* Trennt Wörter ohne Trennzeichen-Rauschen. */
+.row-text .row-word + .row-word::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-right: 9px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+  opacity: 0.6;
+}
+
+.row-hint {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.word-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.row-word-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.expand {
+  flex: none;
+  width: 48px;
+  font-size: 18px;
+  color: var(--ink-soft);
+  border-left: 1px solid var(--line);
+}
+
+.forms {
+  margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
+  background: var(--tile);
+}
+
+.row-form {
+  width: 100%;
+  padding: 8px var(--pad) 8px 32px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.more {
+  width: 100%;
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 40px var(--pad);
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+/* ---------- Fußzeile ---------- */
+
+.status {
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-btn {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* ---------- Bottom Sheet ---------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 620px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 8px var(--pad) max(var(--pad), env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.sheet-grip {
+  width: 36px;
+  height: 4px;
+  margin: 4px auto 18px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 22px;
+}
+
+.field-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.field-label b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.seg {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.seg + .seg {
+  border-left: 1px solid var(--line);
+}
+
+.seg-on {
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+  font-size: 15px;
+}
+
+.toggle input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.toggle em,
+.note {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-style: normal;
+  color: var(--ink-soft);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 7px 11px;
+  font-size: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.chip:disabled {
+  color: var(--ink-soft);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sheet-close {
+  width: 100%;
+  padding: 14px;
+  margin-top: 4px;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: var(--radius);
+  font-weight: 600;
+}
