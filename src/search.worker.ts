@@ -7,10 +7,9 @@
 import { countsOf, normalize } from './core/letters';
 import { parseDictionary, type Dictionary } from './core/dictionary';
 import { buildCandidates, enumerate, scoreOf, subtract } from './core/search';
-import type { AnagramResult, Pin, WorkerRequest, WorkerResponse } from './core/protocol';
+import { MAX_MS, type AnagramResult, type Pin, type WorkerRequest, type WorkerResponse } from './core/protocol';
 
 const MAX_RESULTS = 4000;
-const MAX_MS = 10_000;
 const SLICE_MS = 40;
 const MAX_PIN_COMBOS = 64;
 
@@ -102,7 +101,21 @@ async function run(req: Extract<WorkerRequest, { type: 'search' }>) {
       return i >= 0 ? candidates.ranks[i] : dict.words.indexOf(word);
     });
 
-    for (const indices of enumerate(candidates, rest, settings.maxWords - combo.length, settings.minLen)) {
+    // Das Zeitbudget wird in der Suche selbst geprüft, nicht nur zwischen zwei
+    // Treffern — sonst hängt eine ergebnisarme Suche minutenlang.
+    const overBudget = () => {
+      if (performance.now() - started <= MAX_MS) return false;
+      truncated = true;
+      return true;
+    };
+
+    for (const indices of enumerate(
+      candidates,
+      rest,
+      settings.maxWords - combo.length,
+      settings.minLen,
+      overBudget,
+    )) {
       const words = [...combo, ...indices.map((i) => candidates.words[i])];
       const key = [...words].sort().join(' ');
       if (!seen.has(key)) {

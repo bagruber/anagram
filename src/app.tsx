@@ -3,6 +3,7 @@ import { normalize } from './core/letters';
 import type { Settings } from './core/search';
 import {
   DEFAULT_SETTINGS,
+  MAX_MS,
   type AnagramResult,
   type Pin,
   type WordInfo,
@@ -16,6 +17,8 @@ import { SettingsSheet } from './ui/SettingsSheet';
 
 const PAGE = 200;
 const DEBOUNCE_MS = 250;
+/** Erst ab hier lohnt eine Anzeige — darunter wäre sie ein Flackern. */
+const SPINNER_AFTER_MS = 400;
 
 export function App() {
   const [input, setInput] = useState('');
@@ -34,6 +37,7 @@ export function App() {
   const [done, setDone] = useState<{ total: number; truncated: boolean; ms: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [elapsed, setElapsed] = useState(0);
   const requestId = useRef(0);
   const worker = useMemo(
     () => new Worker(new URL('./search.worker.ts', import.meta.url), { type: 'module' }),
@@ -82,6 +86,16 @@ export function App() {
     }, DEBOUNCE_MS);
     return () => clearTimeout(handle);
   }, [input, settings, pins, dictSize, worker]);
+
+  useEffect(() => {
+    if (!running) {
+      setElapsed(0);
+      return;
+    }
+    const startedAt = performance.now();
+    const handle = setInterval(() => setElapsed(performance.now() - startedAt), 80);
+    return () => clearInterval(handle);
+  }, [running]);
 
   const sorted = useMemo(() => [...results].sort((a, b) => b.score - a.score), [results]);
   const groups = useMemo(() => groupWords(candidates), [candidates]);
@@ -156,12 +170,20 @@ export function App() {
       <main class="list">
         {error && <p class="empty">{error}</p>}
 
-        {!error && !letters && (
-          <p class="empty">
-            {dictSize
-              ? `${dictSize.toLocaleString('de-DE')} Wörter geladen. Tipp etwas ein.`
-              : 'Wörterbuch lädt …'}
-          </p>
+        {!error && !letters && dictSize > 0 && (
+          <p class="empty">{dictSize.toLocaleString('de-DE')} Wörter geladen. Tipp etwas ein.</p>
+        )}
+
+        {!error && !dictSize && (
+          <div class="empty">
+            <p>Wörterbuch lädt …</p>
+            {/* Unbestimmt, weil GitHub Pages gzip ausliefert: Content-Length
+                misst die komprimierten Bytes, der Stream die entpackten. Ein
+                Byte-Balken darauf wäre schlicht falsch. */}
+            <div class="bar bar-idle">
+              <div class="bar-fill" />
+            </div>
+          </div>
         )}
 
         {!error && letters && tab === 'anagrams' && (
@@ -185,9 +207,25 @@ export function App() {
         )}
       </main>
 
+      {running && elapsed > SPINNER_AFTER_MS && (
+        <div
+          class="bar"
+          role="progressbar"
+          aria-label="Suche läuft"
+          aria-valuemin={0}
+          aria-valuemax={MAX_MS}
+          aria-valuenow={Math.round(elapsed)}
+        >
+          <div class="bar-fill" style={{ width: `${Math.min(100, (elapsed / MAX_MS) * 100)}%` }} />
+        </div>
+      )}
+
       <footer class="foot">
         <span class="status">
-          {running && 'sucht …'}
+          {running &&
+            (sorted.length > 0
+              ? `sucht … ${sorted.length.toLocaleString('de-DE')} gefunden`
+              : 'sucht …')}
           {!running && done && `${done.total.toLocaleString('de-DE')} in ${done.ms} ms`}
           {!running && done?.truncated && ' · gekappt, pinne ein Wort'}
         </span>

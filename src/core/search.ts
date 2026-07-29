@@ -41,6 +41,13 @@ export interface Candidates {
   lenStart: Int32Array;
   /** suffixMask[i] = alle Buchstaben, die ab Index i überhaupt noch vorkommen. */
   suffixMask: Int32Array;
+  /** Buchstaben-Signatur → Kandidaten mit exakt dieser Signatur. */
+  bySignature: Map<string, number[]>;
+}
+
+/** Multiset als String, damit es als Map-Schlüssel taugt. */
+function signature(counts: Uint8Array): string {
+  return String.fromCharCode(...counts);
 }
 
 /**
@@ -135,6 +142,16 @@ export function buildCandidates(
   const suffixMask = new Int32Array(n + 1);
   for (let i = n - 1; i >= 0; i--) suffixMask[i] = suffixMask[i + 1] | masks[i];
 
+  // Für den letzten erlaubten Zug: dort muss der Rest exakt einem Wort
+  // entsprechen. Statt alle Kandidaten durchzuprobieren, wird nachgeschlagen.
+  const bySignature = new Map<string, number[]>();
+  for (let i = 0; i < n; i++) {
+    const key = signature(picked[i].counts);
+    const bucket = bySignature.get(key);
+    if (bucket) bucket.push(i);
+    else bySignature.set(key, [i]);
+  }
+
   return {
     n,
     words,
@@ -146,6 +163,7 @@ export function buildCandidates(
     entryCount: Uint8Array.from(entryCount),
     lenStart,
     suffixMask,
+    bySignature,
   };
 }
 
@@ -161,6 +179,7 @@ export function* enumerate(
   target: Uint8Array,
   maxWords: number,
   minLen: number,
+  shouldStop?: () => boolean,
 ): Generator<number[]> {
   const rem = Uint8Array.from(target);
   let total = 0;
@@ -169,7 +188,14 @@ export function* enumerate(
   const stack: number[] = [];
   const maxLen = c.n > 0 ? c.lens[0] : 0;
 
+  // Der Abbruch muss unabhängig davon greifen, ob gerade Treffer entstehen:
+  // eine Suche kann minutenlang laufen und dabei nichts liefern, und dann
+  // bekäme der Aufrufer nie die Kontrolle zurück.
+  let ticks = 0;
+  let stopped = false;
+
   function* step(start: number, remaining: number): Generator<number[]> {
+    if (stopped) return;
     if (remaining === 0) {
       yield stack.slice();
       return;
@@ -180,12 +206,29 @@ export function* enumerate(
     // Selbst mit lauter Maximalwörtern reicht das verbleibende Wortbudget nicht.
     if (remaining > (maxWords - stack.length) * maxLen) return;
 
+    // Beim letzten erlaubten Wort muss der Rest exakt ein Kandidat sein.
+    // Nachschlagen statt scannen — das ist der Unterschied zwischen Sekunden
+    // und Minuten, weil diese Ebene die mit Abstand meisten Knoten hat.
+    if (stack.length === maxWords - 1) {
+      for (const i of c.bySignature.get(signature(rem)) ?? []) {
+        if (i < start) continue;
+        stack.push(i);
+        yield stack.slice();
+        stack.pop();
+      }
+      return;
+    }
+
     const remMask = maskOf(rem);
     let i = Math.max(start, c.lenStart[remaining]);
     // Ein Buchstabe, den kein Wort ab hier mehr enthält, macht den Zweig tot.
     if ((remMask & ~c.suffixMask[i]) !== 0) return;
 
     for (; i < c.n; i++) {
+      if ((++ticks & 0xfff) === 0 && shouldStop?.()) {
+        stopped = true;
+        return;
+      }
       if ((c.masks[i] & ~remMask) !== 0) continue;
 
       const from = c.offsets[i];
@@ -206,6 +249,7 @@ export function* enumerate(
       yield* step(i, remaining - c.lens[i]);
       stack.pop();
       for (let p = from; p < to; p++) rem[c.entryLetter[p]] += c.entryCount[p];
+      if (stopped) return;
     }
   }
 

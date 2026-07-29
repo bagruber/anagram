@@ -1,6 +1,14 @@
 import { TAG_BIT } from './dictionary';
 import type { Settings } from './search';
 
+/**
+ * Zeitbudget einer Suche. Danach bricht sie ab und meldet `truncated`.
+ * Steht hier, weil das UI den Fortschrittsbalken darauf bezieht — die Restzeit
+ * bis zum Abbruch ist bei einer Tiefensuche die einzige ehrliche Fortschritts-
+ * größe: wie viel vom Suchbaum noch kommt, weiß vorher niemand.
+ */
+export const MAX_MS = 5_000;
+
 export interface WordInfo {
   word: string;
   rank: number;

@@ -42,12 +42,42 @@ Drei Dinge machen das browsertauglich:
   mit einer einzigen Integer-Operation raus.
 - **Index-Ordnung** — ein Wort darf nur an Position ≥ dem Vorgänger gewählt
   werden, sonst käme dieselbe Lösung in jeder Reihenfolge heraus.
+- **Signatur-Index** — beim letzten erlaubten Wort muss der Rest *exakt* einem
+  Kandidaten entsprechen. Statt alle durchzuprobieren wird er in einer Map
+  nachgeschlagen. Diese Ebene hat die mit Abstand meisten Knoten, deshalb ist
+  das der größte einzelne Hebel: „Bundesministerium für Gesundheit“ fiel von
+  122 s auf 3,9 s.
 
 Gemessen: 17 Buchstaben, 398 Kandidaten, 1363 Treffer in 60 ms.
 
 Die Suche läuft in einem Web Worker und streamt Treffer in Batches, damit das
 UI beim Tippen nicht einfriert und eine neue Eingabe die laufende Suche
 abbrechen kann.
+
+### Zeitbudget
+
+Eine Suche bricht nach 5 Sekunden ab. Entscheidend ist, *wo* das geprüft wird:
+zwischen zwei Treffern reicht nicht. Lange Eingaben können minutenlang laufen
+und dabei fast nichts finden — die genannte Behördeneingabe lieferte in 122
+Sekunden sechs Treffer. Der Abbruch wird deshalb in der Suchschleife selbst
+geprüft, nicht im Ergebnisstrom. Ohne das friert der Worker ein und ignoriert
+auch neue Eingaben. Ein Test hält das fest.
+
+### Fortschrittsanzeige
+
+Bei einer Tiefensuche gibt es keine ehrliche Prozentzahl: wie groß der
+Restbaum ist, weiß vorher niemand. Der Index der äußersten Schleife wäre
+formal Fortschritt, taugt aber nicht — gemessen erreichte die harte Eingabe
+auch nach Sekunden keine 10 %, der Balken würde also genau dann kleben, wenn
+man ihn braucht.
+
+Angezeigt wird deshalb die Restzeit bis zum Abbruch. Die läuft gleichmäßig und
+sagt etwas Wahres: wann Schluss ist. Dazu die laufende Trefferzahl. Erst nach
+400 ms, sonst flackert es bei den üblichen 60 ms.
+
+Der Wörterbuch-Ladebalken ist dagegen unbestimmt. GitHub Pages liefert gzip
+aus, `Content-Length` misst die komprimierten Bytes, der Stream die entpackten
+— ein Byte-Balken wäre bei 45 % voll und liefe dann auf 224 %.
 
 ### Ranking
 

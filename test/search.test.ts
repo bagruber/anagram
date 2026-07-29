@@ -115,6 +115,27 @@ test('das gebaute Wörterbuch trägt die erwarteten Register', () => {
   expect(tagOf('haus')).toBe(0);
 });
 
+// Diese Eingabe lief ungebremst 122 Sekunden und lieferte dabei 6 Treffer. Wird
+// das Zeitbudget nur zwischen zwei Treffern geprüft, greift es also praktisch
+// nie und der Worker friert ein — samt Abbruch bei neuer Eingabe.
+test('das Zeitbudget greift auch, wenn kaum Treffer entstehen', () => {
+  const dict = parseDictionary(readFileSync(resolve(__dirname, '../public/dict.txt'), 'utf8'));
+  const settings = { ...BASE, maxWords: 3 };
+  const target = countsOf(normalize('Bundesministerium für Gesundheit', true));
+  const candidates = buildCandidates(dict, target, settings);
+
+  const started = performance.now();
+  let found = 0;
+  for (const _ of enumerate(candidates, target, settings.maxWords, settings.minLen, () => {
+    return performance.now() - started > 250;
+  })) {
+    found += 1;
+  }
+
+  expect(performance.now() - started).toBeLessThan(1500);
+  expect(found).toBeLessThan(4000);
+});
+
 test('strikter Modus liefert eine Teilmenge des aufgelösten Modus', () => {
   const dict = ['bär', 'bare', 'aber', 'erbe'];
   const strict = solve(dict, 'Bär', { ...BASE, resolveUmlauts: false }).flat();
