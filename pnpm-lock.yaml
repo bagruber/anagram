@@ -22,7 +22,7 @@ importers:
         specifier: ~7.0.2
         version: 7.0.2
       vite:
-        specifier: ^8.1.5
+        specifier: ^8.2.2
         version: 8.2.2(@types/node@26.3.0)
       vitest:
         specifier: ^4.1.10
